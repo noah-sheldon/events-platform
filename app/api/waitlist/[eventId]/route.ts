@@ -19,7 +19,7 @@ export async function POST(
       );
     }
 
-    const result = serverWaitlistManager.joinWaitlist({
+    const result = await serverWaitlistManager.joinWaitlist({
       eventId,
       attendeeName,
       attendeeEmail,
@@ -57,7 +57,7 @@ export async function DELETE(
       );
     }
 
-    const result = serverWaitlistManager.leaveWaitlist(eventId, email);
+    const result = await serverWaitlistManager.leaveWaitlist(eventId, email);
 
     if (!result.success) {
       return NextResponse.json(

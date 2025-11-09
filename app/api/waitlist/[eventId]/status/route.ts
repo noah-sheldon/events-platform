@@ -17,7 +17,7 @@ export async function GET(
       );
     }
 
-    const status = serverWaitlistManager.getUserWaitlistStatus(eventId, email);
+    const status = await serverWaitlistManager.getUserWaitlistStatus(eventId, email);
 
     return NextResponse.json(status);
   } catch (error) {

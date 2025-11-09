@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 export interface WaitlistEntry {
   eventId: string;
   attendeeName: string;
@@ -13,47 +10,69 @@ interface WaitlistData {
   [eventId: string]: WaitlistEntry[];
 }
 
-const WAITLIST_FILE = path.join(process.cwd(), 'data', 'waitlists.json');
+const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
+const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID;
+const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3';
 
-// Ensure data directory exists
-function ensureDataDir() {
-  const dataDir = path.dirname(WAITLIST_FILE);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+// Read waitlist data from JSONBin
+async function readWaitlistData(): Promise<WaitlistData> {
+  if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
+    console.warn('JSONBin credentials not configured, using empty data');
+    return {};
+  }
+
+  try {
+    const response = await fetch(`${JSONBIN_BASE_URL}/b/${JSONBIN_BIN_ID}`, {
+      headers: {
+        'X-Master-Key': JSONBIN_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Bin doesn't exist yet, return empty data
+        return {};
+      }
+      throw new Error(`JSONBin API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.record || {};
+  } catch (error) {
+    console.error('Error reading waitlist data from JSONBin:', error);
+    return {};
   }
 }
 
-// Read waitlist data from file
-function readWaitlistData(): WaitlistData {
-  ensureDataDir();
-  
+// Write waitlist data to JSONBin
+async function writeWaitlistData(data: WaitlistData): Promise<void> {
+  if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
+    throw new Error('JSONBin credentials not configured');
+  }
+
   try {
-    if (fs.existsSync(WAITLIST_FILE)) {
-      const data = fs.readFileSync(WAITLIST_FILE, 'utf8');
-      return JSON.parse(data);
+    const response = await fetch(`${JSONBIN_BASE_URL}/b/${JSONBIN_BIN_ID}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_API_KEY,
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`JSONBin API error: ${response.status}`);
     }
   } catch (error) {
-    console.error('Error reading waitlist data:', error);
-  }
-  
-  return {};
-}
-
-// Write waitlist data to file
-function writeWaitlistData(data: WaitlistData): void {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(WAITLIST_FILE, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error writing waitlist data:', error);
+    console.error('Error writing waitlist data to JSONBin:', error);
     throw new Error('Failed to save waitlist data');
   }
 }
 
 export class ServerWaitlistManager {
   // Add user to waitlist
-  joinWaitlist(entry: Omit<WaitlistEntry, 'joinedAt'>): { position: number; totalWaiting: number } {
-    const data = readWaitlistData();
+  async joinWaitlist(entry: Omit<WaitlistEntry, 'joinedAt'>): Promise<{ position: number; totalWaiting: number }> {
+    const data = await readWaitlistData();
     
     if (!data[entry.eventId]) {
       data[entry.eventId] = [];
@@ -78,7 +97,7 @@ export class ServerWaitlistManager {
       });
     }
 
-    writeWaitlistData(data);
+    await writeWaitlistData(data);
     
     const position = eventWaitlist.findIndex(w => w.attendeeEmail === entry.attendeeEmail) + 1;
     return {
@@ -88,8 +107,8 @@ export class ServerWaitlistManager {
   }
 
   // Remove user from waitlist
-  leaveWaitlist(eventId: string, email: string): { success: boolean; totalWaiting: number } {
-    const data = readWaitlistData();
+  async leaveWaitlist(eventId: string, email: string): Promise<{ success: boolean; totalWaiting: number }> {
+    const data = await readWaitlistData();
     
     if (!data[eventId]) {
       return { success: false, totalWaiting: 0 };
@@ -104,7 +123,7 @@ export class ServerWaitlistManager {
     }
 
     data[eventId] = filteredWaitlist;
-    writeWaitlistData(data);
+    await writeWaitlistData(data);
 
     return {
       success: true,
@@ -113,8 +132,8 @@ export class ServerWaitlistManager {
   }
 
   // Check if user is on waitlist
-  isOnWaitlist(eventId: string, email: string): boolean {
-    const data = readWaitlistData();
+  async isOnWaitlist(eventId: string, email: string): Promise<boolean> {
+    const data = await readWaitlistData();
     
     if (!data[eventId]) return false;
     
@@ -122,8 +141,8 @@ export class ServerWaitlistManager {
   }
 
   // Get user's position on waitlist
-  getWaitlistPosition(eventId: string, email: string): number {
-    const data = readWaitlistData();
+  async getWaitlistPosition(eventId: string, email: string): Promise<number> {
+    const data = await readWaitlistData();
     
     if (!data[eventId]) return 0;
     
@@ -132,27 +151,27 @@ export class ServerWaitlistManager {
   }
 
   // Get total waitlist size for event
-  getWaitlistSize(eventId: string): number {
-    const data = readWaitlistData();
+  async getWaitlistSize(eventId: string): Promise<number> {
+    const data = await readWaitlistData();
     return data[eventId]?.length || 0;
   }
 
   // Get user's waitlist status for an event
-  getUserWaitlistStatus(eventId: string, email: string): {
+  async getUserWaitlistStatus(eventId: string, email: string): Promise<{
     isOnWaitlist: boolean;
     position: number;
     totalWaiting: number;
-  } {
+  }> {
     return {
-      isOnWaitlist: this.isOnWaitlist(eventId, email),
-      position: this.getWaitlistPosition(eventId, email),
-      totalWaiting: this.getWaitlistSize(eventId),
+      isOnWaitlist: await this.isOnWaitlist(eventId, email),
+      position: await this.getWaitlistPosition(eventId, email),
+      totalWaiting: await this.getWaitlistSize(eventId),
     };
   }
 
   // Get all waitlists for debugging/admin
-  getAllWaitlists(): WaitlistData {
-    return readWaitlistData();
+  async getAllWaitlists(): Promise<WaitlistData> {
+    return await readWaitlistData();
   }
 }
 
