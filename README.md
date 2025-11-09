@@ -21,7 +21,7 @@ A modern events platform built for the Full Stack Technical Test, solving common
 - **Frontend**: Next.js 16 with App Router + React 19.2 + TypeScript
 - **Styling**: Tailwind CSS v4 with shadcn/ui component library
 - **Forms**: React Hook Form with Zod validation and @hookform/resolvers
-- **State Management**: React hooks with localStorage for waitlist persistence
+- **State Management**: React hooks with server-side JSON persistence for waitlist management
 - **API Architecture**: Next.js API routes for secure server-side external API calls
 - **Deployment**: Vercel (seamless Next.js integration)
 
@@ -158,7 +158,8 @@ npm run lint
 ### State Management
 
 - React hooks for component state
-- LocalStorage for waitlist persistence
+- Server-side JSON file storage for global waitlist persistence
+- API-driven waitlist management with real-time updates
 - Optimistic updates for better UX
 
 ## 🤝 Contributing
