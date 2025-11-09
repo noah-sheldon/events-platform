@@ -33,14 +33,15 @@ A modern events platform built for the Full Stack Technical Test, solving common
 
 ### Bonus Feature (implemented):
 
-**🎯 Event Capacity & Waitlists (Enhanced with Server-Side Storage)**
+**🎯 Event Capacity & Waitlists (Enhanced with JSONBin.io Cloud Storage)**
 
 - Events show capacity status: Available/Few spots left/Full/Waitlist
 - **Real global waitlist management** - Multiple users share the same queue
-- **Server-side JSON persistence** - Data survives server restarts and browser clearing
+- **JSONBin.io external storage** - Cloud-based key-value store for production scalability
 - **True position tracking** - Real queue positions across all users (#1, #2, #3...)
 - **API-driven architecture** - Custom waitlist endpoints for scalable management
 - **Cross-device functionality** - Waitlist status syncs across browsers/devices
+- **Serverless compatible** - Works in Vercel and other serverless environments
 
 ### Key Design Decisions:
 
@@ -60,12 +61,13 @@ A modern events platform built for the Full Stack Technical Test, solving common
 - **Responsive Design**: Optimized for mobile, tablet, and desktop
 - **Working Deployment**: Production-ready build and deployment
 
-### Bonus: Server-Side Waitlist System ✅
+### Bonus: JSONBin.io Cloud Waitlist System ✅
 
-- **Real Global Queue Management** - Server-side JSON storage shared across all users
+- **Real Global Queue Management** - JSONBin.io cloud storage shared across all users
 - **True Position Tracking** - User A = #1, User B = #2, User C = #3 (not everyone #1!)
 - **API-Driven Waitlists** - POST/DELETE/GET endpoints for waitlist operations
-- **Persistent Data** - JSON file storage survives server restarts
+- **External Key-Value Storage** - JSONBin.io provides persistent cloud-based JSON storage
+- **Production Scalability** - Works in serverless environments (Vercel, Netlify, etc.)
 - **Real-Time Updates** - Live waitlist positions and total counts
 - **Cross-User Functionality** - Multiple users see the same accurate queue
 
@@ -95,9 +97,20 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```bash
+# External Events API
 API_BASE_URL=https://x15zoj9on9.execute-api.us-east-1.amazonaws.com/prod
 API_KEY=your-api-key-here
+
+# JSONBin.io for waitlist storage (get free account at https://jsonbin.io)
+JSONBIN_API_KEY="your-jsonbin-master-key-here"
+JSONBIN_BIN_ID=your-bin-id-here
 ```
+
+**JSONBin.io Setup:**
+1. Create a free account at [jsonbin.io](https://jsonbin.io)
+2. Create a new bin with initial content: `{}`
+3. Copy your Master Key and Bin ID to the environment variables above
+4. Note: Escape special characters in the API key with quotes and backslashes
 
 ### Development
 
@@ -136,15 +149,13 @@ npm run lint
 │   │   └── waitlist/   # Custom waitlist management API
 │   ├── events/         # Event listing and detail pages
 │   └── layout.tsx      # Root layout with metadata
-├── data/               # Server-side data storage
-│   └── waitlists.json  # JSON file storing all waitlist data
 ├── components/ui/      # shadcn/ui component library
 ├── lib/               # Utilities and API clients
 │   ├── api.ts         # Server-side API client
 │   ├── client-api.ts  # Frontend API client
 │   ├── types.ts       # TypeScript interfaces
 │   ├── utils.ts       # Utility functions
-│   ├── server-waitlist.ts    # Server-side waitlist management (JSON storage)
+│   ├── server-waitlist.ts    # Server-side waitlist management (JSONBin.io storage)
 │   └── waitlist-api.ts       # Client-side waitlist API wrapper
 └── public/            # Static assets
 ```
@@ -155,10 +166,18 @@ npm run lint
 - API keys never exposed to frontend/browser
 - Type-safe API interfaces throughout
 
+### Waitlist Storage Architecture
+
+- **External Key-Value Store**: JSONBin.io provides cloud-based JSON storage
+- **Serverless Compatible**: Works in Vercel, Netlify, and other serverless platforms
+- **Global Persistence**: Data survives server restarts and deployments
+- **Real-Time Sync**: Multiple users see the same accurate queue positions
+- **API-Driven**: RESTful endpoints for all waitlist operations (join/leave/status)
+
 ### State Management
 
 - React hooks for component state
-- Server-side JSON file storage for global waitlist persistence
+- JSONBin.io cloud storage for global waitlist persistence
 - API-driven waitlist management with real-time updates
 - Optimistic updates for better UX
 
