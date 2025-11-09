@@ -14,13 +14,33 @@ const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
 const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID;
 const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3';
 
-// Read waitlist data from JSONBin
+// Rate limiting and caching
+let cache: { data: WaitlistData; timestamp: number } | null = null;
+const CACHE_DURATION = 5000; // 5 seconds cache
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
+
+// Read waitlist data from JSONBin with caching and rate limiting
 async function readWaitlistData(): Promise<WaitlistData> {
   if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
     return {};
   }
 
+  // Check cache first
+  const now = Date.now();
+  if (cache && (now - cache.timestamp) < CACHE_DURATION) {
+    return cache.data;
+  }
+
+  // Rate limiting - ensure minimum interval between requests
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    // Return cached data if available, otherwise empty
+    return cache?.data || {};
+  }
+
   try {
+    lastRequestTime = now;
     const response = await fetch(`${JSONBIN_BASE_URL}/b/${JSONBIN_BIN_ID}`, {
       headers: {
         'X-Master-Key': JSONBIN_API_KEY,
@@ -32,23 +52,42 @@ async function readWaitlistData(): Promise<WaitlistData> {
         // Bin doesn't exist yet, return empty data
         return {};
       }
+      if (response.status === 429) {
+        // Rate limited - return cached data if available
+        return cache?.data || {};
+      }
       throw new Error(`JSONBin API error: ${response.status}`);
     }
 
     const result = await response.json();
-    return result.record || {};
+    const data = result.record || {};
+    
+    // Update cache
+    cache = { data, timestamp: now };
+    
+    return data;
   } catch (error) {
-    return {};
+    // Return cached data if available, otherwise empty
+    return cache?.data || {};
   }
 }
 
-// Write waitlist data to JSONBin
+// Write waitlist data to JSONBin with rate limiting
 async function writeWaitlistData(data: WaitlistData): Promise<void> {
   if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
     throw new Error('JSONBin credentials not configured');
   }
 
+  // Rate limiting for writes
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    // Wait for the remaining time
+    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+  }
+
   try {
+    lastRequestTime = Date.now();
     const response = await fetch(`${JSONBIN_BASE_URL}/b/${JSONBIN_BIN_ID}`, {
       method: 'PUT',
       headers: {
@@ -59,8 +98,14 @@ async function writeWaitlistData(data: WaitlistData): Promise<void> {
     });
     
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Rate limited - please try again in a moment');
+      }
       throw new Error(`JSONBin API error: ${response.status}`);
     }
+
+    // Update cache after successful write
+    cache = { data, timestamp: Date.now() };
   } catch (error) {
     throw new Error('Failed to save waitlist data');
   }
@@ -153,16 +198,22 @@ export class ServerWaitlistManager {
     return data[eventId]?.length || 0;
   }
 
-  // Get user's waitlist status for an event
+  // Get user's waitlist status for an event (optimized to use single API call)
   async getUserWaitlistStatus(eventId: string, email: string): Promise<{
     isOnWaitlist: boolean;
     position: number;
     totalWaiting: number;
   }> {
+    const data = await readWaitlistData();
+    const eventWaitlist = data[eventId] || [];
+    
+    const position = eventWaitlist.findIndex(w => w.attendeeEmail === email);
+    const isOnWaitlist = position >= 0;
+    
     return {
-      isOnWaitlist: await this.isOnWaitlist(eventId, email),
-      position: await this.getWaitlistPosition(eventId, email),
-      totalWaiting: await this.getWaitlistSize(eventId),
+      isOnWaitlist,
+      position: isOnWaitlist ? position + 1 : 0,
+      totalWaiting: eventWaitlist.length,
     };
   }
 
