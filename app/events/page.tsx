@@ -1,24 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { clientAPI } from '@/lib/client-api';
 import { getEventStatusInfo } from '@/lib/api';
 import { Event } from '@/lib/types';
 import Link from 'next/link';
+import { Search, Filter } from 'lucide-react';
+
+const categories = [
+  { id: 'all', name: 'All Categories', color: '#6B7280' },
+  { id: 'technology', name: 'Technology', color: '#3B82F6' },
+  { id: 'business', name: 'Business', color: '#10B981' },
+  { id: 'design', name: 'Design', color: '#F59E0B' },
+  { id: 'marketing', name: 'Marketing', color: '#EC4899' },
+  { id: 'health', name: 'Health & Wellness', color: '#8B5CF6' },
+];
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'full'>('all');
 
   useEffect(() => {
     async function fetchEvents() {
       try {
         setLoading(true);
-        const response = await clientAPI.getEvents({ limit: 20 });
+        const filters: any = { limit: 50 };
+        if (selectedCategory !== 'all') {
+          filters.category = selectedCategory;
+        }
+        if (statusFilter !== 'all') {
+          filters.status = statusFilter;
+        }
+        
+        const response = await clientAPI.getEvents(filters);
         setEvents(response.events);
         setError(null);
       } catch (err) {
@@ -29,7 +51,17 @@ export default function EventsPage() {
     }
 
     fetchEvents();
-  }, []);
+  }, [selectedCategory, statusFilter]);
+
+  const filteredEvents = useMemo(() => {
+    if (!searchTerm) return events;
+    
+    return events.filter(event => 
+      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [events, searchTerm]);
 
   if (loading) {
     return (
@@ -67,8 +99,75 @@ export default function EventsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-4xl font-bold mb-8">Events</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {events.map((event) => {
+      
+      {/* Search and Filters */}
+      <div className="mb-8 space-y-4">
+        {/* Search Input */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            type="text"
+            placeholder="Search events..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <Button
+              key={category.id}
+              variant={selectedCategory === category.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(category.id)}
+              style={selectedCategory === category.id ? { backgroundColor: category.color } : {}}
+            >
+              {category.name}
+            </Button>
+          ))}
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex gap-2">
+          <Button
+            variant={statusFilter === 'all' ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+          >
+            All Events
+          </Button>
+          <Button
+            variant={statusFilter === 'available' ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter('available')}
+          >
+            Available
+          </Button>
+          <Button
+            variant={statusFilter === 'full' ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter('full')}
+          >
+            Full Events
+          </Button>
+        </div>
+
+        {/* Results Count */}
+        <p className="text-sm text-muted-foreground">
+          Showing {filteredEvents.length} of {events.length} events
+        </p>
+      </div>
+
+      {/* Events Grid */}
+      {filteredEvents.length === 0 && !loading ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No events found matching your criteria.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredEvents.map((event) => {
           const statusInfo = getEventStatusInfo(event.capacity);
           const eventDate = new Date(event.date);
           
@@ -122,7 +221,8 @@ export default function EventsPage() {
             </Card>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,10 @@ import { RegistrationRequest } from '@/lib/types';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body: RegistrationRequest = await request.json();
     
     // Basic validation
@@ -17,7 +18,7 @@ export async function POST(
       );
     }
 
-    const response = await apiClient.registerForEvent(params.id, body);
+    const response = await apiClient.registerForEvent(id, body);
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error registering for event:', error);
