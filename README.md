@@ -6,6 +6,14 @@ A modern events platform built for the Full Stack Technical Test, solving common
 
 **Live Demo:** [https://events-platform-bay.vercel.app/](https://events-platform-bay.vercel.app/)
 
+### Screenshots
+
+**Events Listing Page:**
+![Events Listing](./public/events.png)
+
+**Event Registration & Waitlist:**
+![Event Registration](./public/events-signup.png)
+
 ## ⚡ My Approach
 
 ### Technology Choices:
@@ -121,16 +129,21 @@ npm run lint
 
 ```
 ├── app/                 # Next.js App Router pages
-│   ├── api/            # API routes (secure external API proxy)
+│   ├── api/            # API routes (secure external API proxy + waitlist endpoints)
+│   │   ├── events/     # External events API proxy
+│   │   └── waitlist/   # Custom waitlist management API
 │   ├── events/         # Event listing and detail pages
 │   └── layout.tsx      # Root layout with metadata
+├── data/               # Server-side data storage
+│   └── waitlists.json  # JSON file storing all waitlist data
 ├── components/ui/      # shadcn/ui component library
 ├── lib/               # Utilities and API clients
 │   ├── api.ts         # Server-side API client
 │   ├── client-api.ts  # Frontend API client
 │   ├── types.ts       # TypeScript interfaces
 │   ├── utils.ts       # Utility functions
-│   └── waitlist.ts    # Waitlist management system
+│   ├── server-waitlist.ts    # Server-side waitlist management (JSON storage)
+│   └── waitlist-api.ts       # Client-side waitlist API wrapper
 └── public/            # Static assets
 ```
 
