@@ -67,3 +67,11 @@ export interface EventFilters {
   limit?: number;
   lastKey?: string;
 }
+
+export interface WaitlistEntry {
+  eventId: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  groupSize: number;
+  joinedAt: string;
+}

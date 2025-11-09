@@ -10,11 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { clientAPI } from '@/lib/client-api';
 import { getEventStatusInfo } from '@/lib/api';
+import { waitlistManager } from '@/lib/waitlist';
 import { Event, RegistrationRequest } from '@/lib/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Calendar, MapPin, Users, DollarSign, Clock, ArrowLeft } from 'lucide-react';
+import { Calendar, MapPin, Users, DollarSign, Clock, ArrowLeft, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -32,7 +33,11 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOnWaitlist, setIsOnWaitlist] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState(0);
+  const [waitlistSize, setWaitlistSize] = useState(0);
 
   const form = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -50,6 +55,10 @@ export default function EventDetailPage() {
         const response = await clientAPI.getEvent(params.id as string);
         setEvent(response.event);
         setError(null);
+        
+        // Check waitlist status
+        const eventId = params.id as string;
+        setWaitlistSize(waitlistManager.getWaitlistSize(eventId));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch event');
       } finally {
@@ -61,6 +70,19 @@ export default function EventDetailPage() {
       fetchEvent();
     }
   }, [params.id]);
+
+  // Check if user is on waitlist when form data changes
+  useEffect(() => {
+    if (event && form.watch('attendeeEmail')) {
+      const email = form.watch('attendeeEmail');
+      const onWaitlist = waitlistManager.isOnWaitlist(event.id, email);
+      setIsOnWaitlist(onWaitlist);
+      
+      if (onWaitlist) {
+        setWaitlistPosition(waitlistManager.getWaitlistPosition(event.id, email));
+      }
+    }
+  }, [event, form.watch('attendeeEmail')]);
 
   const onSubmit = async (data: RegistrationForm) => {
     if (!event) return;
@@ -95,6 +117,49 @@ export default function EventDetailPage() {
     } finally {
       setRegistering(false);
     }
+  };
+
+  const onJoinWaitlist = async (data: RegistrationForm) => {
+    if (!event) return;
+
+    try {
+      setJoiningWaitlist(true);
+      
+      waitlistManager.joinWaitlist({
+        eventId: event.id,
+        attendeeName: data.attendeeName,
+        attendeeEmail: data.attendeeEmail,
+        groupSize: data.groupSize,
+      });
+
+      setIsOnWaitlist(true);
+      setWaitlistPosition(waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail));
+      setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
+
+      toast.success('Added to waitlist!', {
+        description: `You're #${waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail)} on the waitlist for ${event.title}.`,
+      });
+    } catch (err) {
+      toast.error('Failed to join waitlist', {
+        description: 'Please try again later.',
+      });
+    } finally {
+      setJoiningWaitlist(false);
+    }
+  };
+
+  const leaveWaitlist = () => {
+    if (!event) return;
+    
+    const email = form.watch('attendeeEmail');
+    waitlistManager.leaveWaitlist(event.id, email);
+    setIsOnWaitlist(false);
+    setWaitlistPosition(0);
+    setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
+    
+    toast.success('Removed from waitlist', {
+      description: 'You have been removed from the waitlist.',
+    });
   };
 
   if (loading) {
@@ -228,6 +293,15 @@ export default function EventDetailPage() {
                     <span>{event.capacity.registered}/{event.capacity.max} registered</span>
                   </div>
                 </div>
+                {waitlistSize > 0 && (
+                  <div className="flex justify-between">
+                    <span className="font-medium">Waitlist:</span>
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      <span>{waitlistSize} waiting</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -246,13 +320,93 @@ export default function EventDetailPage() {
               </CardHeader>
               <CardContent>
                 {isEventFull ? (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">
-                      Unfortunately, this event is fully booked.
-                    </p>
-                    <Button variant="outline" className="w-full" disabled>
-                      Event Full
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground mb-2">
+                        This event is fully booked.
+                      </p>
+                      {waitlistSize > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {waitlistSize} people on the waitlist
+                        </p>
+                      )}
+                    </div>
+
+                    {isOnWaitlist ? (
+                      <div className="text-center space-y-4">
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <p className="font-medium text-blue-900 dark:text-blue-100">
+                            You're on the waitlist!
+                          </p>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            Position: #{waitlistPosition}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="w-full" 
+                          onClick={leaveWaitlist}
+                        >
+                          Leave Waitlist
+                        </Button>
+                      </div>
+                    ) : (
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onJoinWaitlist)} className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="attendeeName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter your full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="attendeeEmail"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Address</FormLabel>
+                                <FormControl>
+                                  <Input type="email" placeholder="Enter your email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="groupSize"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Group Size</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    min="1" 
+                                    max="10" 
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <Button type="submit" className="w-full" disabled={joiningWaitlist}>
+                            {joiningWaitlist ? 'Joining...' : 'Join Waitlist'}
+                          </Button>
+                        </form>
+                      </Form>
+                    )}
                   </div>
                 ) : (
                   <Form {...form}>
