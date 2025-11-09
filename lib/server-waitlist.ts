@@ -17,7 +17,6 @@ const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3';
 // Read waitlist data from JSONBin
 async function readWaitlistData(): Promise<WaitlistData> {
   if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
-    console.warn('JSONBin credentials not configured, using empty data');
     return {};
   }
 
@@ -39,7 +38,6 @@ async function readWaitlistData(): Promise<WaitlistData> {
     const result = await response.json();
     return result.record || {};
   } catch (error) {
-    console.error('Error reading waitlist data from JSONBin:', error);
     return {};
   }
 }
@@ -64,7 +62,6 @@ async function writeWaitlistData(data: WaitlistData): Promise<void> {
       throw new Error(`JSONBin API error: ${response.status}`);
     }
   } catch (error) {
-    console.error('Error writing waitlist data to JSONBin:', error);
     throw new Error('Failed to save waitlist data');
   }
 }
