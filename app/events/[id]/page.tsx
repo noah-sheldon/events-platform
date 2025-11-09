@@ -96,8 +96,13 @@ export default function EventDetailPage() {
       };
 
       await clientAPI.registerForEvent(event.id, registration);
-      toast.success('Registration successful!', {
-        description: `You've been registered for ${event.title}. Check your email for confirmation.`,
+      toast.success('🎉 Registration Confirmed!', {
+        description: `Successfully registered for ${event.title}`,
+        style: {
+          background: '#10b981',
+          color: 'white',
+          border: 'none',
+        },
       });
       
       // Update event capacity (optimistic update)
@@ -111,8 +116,13 @@ export default function EventDetailPage() {
 
       form.reset();
     } catch (err) {
-      toast.error('Registration failed', {
+      toast.error('❌ Registration Failed', {
         description: err instanceof Error ? err.message : 'Please try again later.',
+        style: {
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+        },
       });
     } finally {
       setRegistering(false);
@@ -136,12 +146,22 @@ export default function EventDetailPage() {
       setWaitlistPosition(waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail));
       setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
 
-      toast.success('Added to waitlist!', {
-        description: `You're #${waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail)} on the waitlist for ${event.title}.`,
+      toast.success('📝 Added to Waitlist!', {
+        description: `You're #${waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail)} on the waitlist`,
+        style: {
+          background: '#3b82f6',
+          color: 'white',
+          border: 'none',
+        },
       });
     } catch (err) {
-      toast.error('Failed to join waitlist', {
-        description: 'Please try again later.',
+      toast.error('❌ Waitlist Error', {
+        description: 'Failed to join waitlist. Please try again.',
+        style: {
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+        },
       });
     } finally {
       setJoiningWaitlist(false);
@@ -157,8 +177,13 @@ export default function EventDetailPage() {
     setWaitlistPosition(0);
     setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
     
-    toast.success('Removed from waitlist', {
+    toast.success('✅ Removed from Waitlist', {
       description: 'You have been removed from the waitlist.',
+      style: {
+        background: '#10b981',
+        color: 'white',
+        border: 'none',
+      },
     });
   };
 

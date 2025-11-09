@@ -32,15 +32,8 @@ export default function EventsPage() {
     async function fetchEvents() {
       try {
         setLoading(true);
-        const filters: any = { limit: 50 };
-        if (selectedCategory !== 'all') {
-          filters.category = selectedCategory;
-        }
-        if (statusFilter !== 'all') {
-          filters.status = statusFilter;
-        }
-        
-        const response = await clientAPI.getEvents(filters);
+        // Fetch ALL events and filter client-side for better UX
+        const response = await clientAPI.getEvents({ limit: 50 });
         setEvents(response.events);
         setError(null);
       } catch (err) {
@@ -51,17 +44,35 @@ export default function EventsPage() {
     }
 
     fetchEvents();
-  }, [selectedCategory, statusFilter]);
+  }, []); // Only fetch once on mount
 
   const filteredEvents = useMemo(() => {
-    if (!searchTerm) return events;
-    
-    return events.filter(event => 
-      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.category.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [events, searchTerm]);
+    let filtered = events;
+
+    // Filter by category (client-side, instant)
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(event => event.category.id === selectedCategory);
+    }
+
+    // Filter by status (client-side, instant)
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(event => {
+        const statusInfo = getEventStatusInfo(event.capacity);
+        return statusFilter === 'available' ? statusInfo.text !== 'Full' : statusInfo.text === 'Full';
+      });
+    }
+
+    // Filter by search term (client-side, instant)
+    if (searchTerm) {
+      filtered = filtered.filter(event => 
+        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.category.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }, [events, selectedCategory, statusFilter, searchTerm]);
 
   if (loading) {
     return (
