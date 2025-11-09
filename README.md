@@ -33,13 +33,14 @@ A modern events platform built for the Full Stack Technical Test, solving common
 
 ### Bonus Feature (implemented):
 
-**🎯 Event Capacity & Waitlists**
+**🎯 Event Capacity & Waitlists (Enhanced with Server-Side Storage)**
 
 - Events show capacity status: Available/Few spots left/Full/Waitlist
-- Users can join waitlists for full events with position tracking
-- LocalStorage-based persistence across browser sessions
-- Real-time waitlist size and position updates
-- Leave waitlist functionality with confirmation
+- **Real global waitlist management** - Multiple users share the same queue
+- **Server-side JSON persistence** - Data survives server restarts and browser clearing
+- **True position tracking** - Real queue positions across all users (#1, #2, #3...)
+- **API-driven architecture** - Custom waitlist endpoints for scalable management
+- **Cross-device functionality** - Waitlist status syncs across browsers/devices
 
 ### Key Design Decisions:
 
@@ -59,13 +60,14 @@ A modern events platform built for the Full Stack Technical Test, solving common
 - **Responsive Design**: Optimized for mobile, tablet, and desktop
 - **Working Deployment**: Production-ready build and deployment
 
-### Bonus: Waitlist System ✅
+### Bonus: Server-Side Waitlist System ✅
 
-- Join waitlist for full events
-- View waitlist position (#1, #2, etc.)
-- Real-time waitlist size tracking
-- Persistent waitlist data
-- Leave waitlist functionality
+- **Real Global Queue Management** - Server-side JSON storage shared across all users
+- **True Position Tracking** - User A = #1, User B = #2, User C = #3 (not everyone #1!)
+- **API-Driven Waitlists** - POST/DELETE/GET endpoints for waitlist operations
+- **Persistent Data** - JSON file storage survives server restarts
+- **Real-Time Updates** - Live waitlist positions and total counts
+- **Cross-User Functionality** - Multiple users see the same accurate queue
 
 ### Additional Enhancements
 
