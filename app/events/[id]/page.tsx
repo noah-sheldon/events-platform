@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { clientAPI } from '@/lib/client-api';
 import { getEventStatusInfo } from '@/lib/api';
-import { waitlistManager } from '@/lib/waitlist';
+import { waitlistAPI } from '@/lib/waitlist-api';
 import { Event, RegistrationRequest } from '@/lib/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,9 +56,9 @@ export default function EventDetailPage() {
         setEvent(response.event);
         setError(null);
         
-        // Check waitlist status
+        // Check waitlist status from server
         const eventId = params.id as string;
-        setWaitlistSize(waitlistManager.getWaitlistSize(eventId));
+        // We'll fetch waitlist status when user enters email
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch event');
       } finally {
@@ -73,15 +73,23 @@ export default function EventDetailPage() {
 
   // Check if user is on waitlist when form data changes
   useEffect(() => {
-    if (event && form.watch('attendeeEmail')) {
-      const email = form.watch('attendeeEmail');
-      const onWaitlist = waitlistManager.isOnWaitlist(event.id, email);
-      setIsOnWaitlist(onWaitlist);
-      
-      if (onWaitlist) {
-        setWaitlistPosition(waitlistManager.getWaitlistPosition(event.id, email));
+    async function checkWaitlistStatus() {
+      if (event && form.watch('attendeeEmail')) {
+        try {
+          const email = form.watch('attendeeEmail');
+          const status = await waitlistAPI.getWaitlistStatus(event.id, email);
+          setIsOnWaitlist(status.isOnWaitlist);
+          setWaitlistPosition(status.position);
+          setWaitlistSize(status.totalWaiting);
+        } catch (error) {
+          // User not on waitlist or error occurred
+          setIsOnWaitlist(false);
+          setWaitlistPosition(0);
+        }
       }
     }
+
+    checkWaitlistStatus();
   }, [event, form.watch('attendeeEmail')]);
 
   const onSubmit = async (data: RegistrationForm) => {
@@ -135,19 +143,18 @@ export default function EventDetailPage() {
     try {
       setJoiningWaitlist(true);
       
-      waitlistManager.joinWaitlist({
-        eventId: event.id,
+      const response = await waitlistAPI.joinWaitlist(event.id, {
         attendeeName: data.attendeeName,
         attendeeEmail: data.attendeeEmail,
         groupSize: data.groupSize,
       });
 
       setIsOnWaitlist(true);
-      setWaitlistPosition(waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail));
-      setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
+      setWaitlistPosition(response.position);
+      setWaitlistSize(response.totalWaiting);
 
       toast.success('📝 Added to Waitlist!', {
-        description: `You're #${waitlistManager.getWaitlistPosition(event.id, data.attendeeEmail)} on the waitlist`,
+        description: `You're #${response.position} on the waitlist (${response.totalWaiting} total waiting)`,
         style: {
           background: '#3b82f6',
           color: 'white',
@@ -156,7 +163,7 @@ export default function EventDetailPage() {
       });
     } catch (err) {
       toast.error('❌ Waitlist Error', {
-        description: 'Failed to join waitlist. Please try again.',
+        description: err instanceof Error ? err.message : 'Failed to join waitlist. Please try again.',
         style: {
           background: '#ef4444',
           color: 'white',
@@ -168,23 +175,35 @@ export default function EventDetailPage() {
     }
   };
 
-  const leaveWaitlist = () => {
+  const leaveWaitlist = async () => {
     if (!event) return;
     
-    const email = form.watch('attendeeEmail');
-    waitlistManager.leaveWaitlist(event.id, email);
-    setIsOnWaitlist(false);
-    setWaitlistPosition(0);
-    setWaitlistSize(waitlistManager.getWaitlistSize(event.id));
-    
-    toast.success('✅ Removed from Waitlist', {
-      description: 'You have been removed from the waitlist.',
-      style: {
-        background: '#10b981',
-        color: 'white',
-        border: 'none',
-      },
-    });
+    try {
+      const email = form.watch('attendeeEmail');
+      const response = await waitlistAPI.leaveWaitlist(event.id, email);
+      
+      setIsOnWaitlist(false);
+      setWaitlistPosition(0);
+      setWaitlistSize(response.totalWaiting);
+      
+      toast.success('✅ Removed from Waitlist', {
+        description: `You have been removed from the waitlist. ${response.totalWaiting} still waiting.`,
+        style: {
+          background: '#10b981',
+          color: 'white',
+          border: 'none',
+        },
+      });
+    } catch (err) {
+      toast.error('❌ Error', {
+        description: 'Failed to remove from waitlist. Please try again.',
+        style: {
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+        },
+      });
+    }
   };
 
   if (loading) {
