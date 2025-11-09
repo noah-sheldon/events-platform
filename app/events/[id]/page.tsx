@@ -22,7 +22,7 @@ import Link from 'next/link';
 const registrationSchema = z.object({
   attendeeName: z.string().min(1, 'Name is required'),
   attendeeEmail: z.string().email('Please enter a valid email address'),
-  groupSize: z.number().min(1).max(10).default(1),
+  groupSize: z.number().min(1).max(10),
 });
 
 type RegistrationForm = z.infer<typeof registrationSchema>;
